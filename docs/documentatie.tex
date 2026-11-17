@@ -211,7 +211,7 @@ frontend. Scenarii planificate:
 
 \section{Jurnal de implementare}
 
-\subsection{Pasul 1: Baza de date în Docker (\wip)}
+\subsection{Pasul 1: Baza de date în Docker (\done)}
 
 PostgreSQL nu este instalat local, ci rulează într-un container Docker. Astfel mediul de
 dezvoltare este reproductibil și poate fi pornit sau oprit cu o singură comandă.
@@ -222,6 +222,10 @@ second-chance-paws/
 |-- docker-compose.yml
 |-- .env
 |-- .gitignore
+|-- .env.example
+|-- README.md
+|-- pgadmin/
+|   `-- servers.json
 `-- docs/
     `-- documentatie.tex
 \end{lstlisting}
@@ -237,7 +241,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -253,8 +257,11 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@demo.com
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
     ports:
       - "5050:80"
+    volumes:
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
     depends_on:
       db:
         condition: service_healthy
@@ -264,11 +271,15 @@ volumes:
 \end{lstlisting}
 
 \begin{itemize}
-  \item \textbf{db} -- serverul PostgreSQL 17. Portul 5432 este expus pe \texttt{localhost};
+  \item \textbf{db} -- serverul PostgreSQL 17. În container rulează pe portul 5432, dar pe
+        calculatorul gazdă este expus pe portul \textbf{5433} (configurabil prin \texttt{POSTGRES\_PORT}),
+        deoarece portul 5432 era deja ocupat de o instalare locală PostgreSQL 18;
         volumul \texttt{pgdata} păstrează datele între reporniri; \emph{healthcheck}-ul
         verifică periodic, cu \texttt{pg\_isready}, dacă baza de date acceptă conexiuni.
   \item \textbf{pgadmin} -- interfață web pentru administrarea bazei de date, disponibilă la
         \url{http://localhost:5050}. Pornește doar după ce serviciul \texttt{db} este funcțional.
+        Serverul bazei de date este înregistrat automat din fișierul \texttt{pgadmin/servers.json},
+        iar cererea parolei principale (\emph{master password}) este dezactivată, fiind un mediu local.
 \end{itemize}
 
 \paragraph{Fișierul \texttt{.env}} conține configurările bazei de date, citite automat de
@@ -278,7 +289,28 @@ valorile sunt doar pentru mediul local de dezvoltare.
 POSTGRES_DB=second_chance_paws
 POSTGRES_USER=scp
 POSTGRES_PASSWORD=scp_dev_password
+POSTGRES_PORT=5433
 \end{lstlisting}
+
+În repository este urcat fișierul \texttt{.env.example}, un model după care fiecare
+dezvoltator își creează propriul \texttt{.env}.
+
+\paragraph{Probleme întâlnite.}
+\begin{itemize}
+  \item \textbf{Port ocupat:} la prima pornire Docker a raportat
+        \texttt{bind: address already in use} pentru portul 5432. Cauza: o instalare locală
+        PostgreSQL 18. Soluția a fost maparea portului containerului pe 5433, fără a modifica
+        instalarea existentă.
+  \item \textbf{Serverul nu apărea în pgAdmin:} fișierul \texttt{servers.json} este importat doar
+        la prima inițializare. Containerul a fost recreat împreună cu volumul său
+        (\texttt{docker compose rm -sfv pgadmin}).
+\end{itemize}
+
+\paragraph{Verificare:}
+\begin{lstlisting}
+docker exec scp-db psql -U scp -d second_chance_paws -c "select version();"
+\end{lstlisting}
+Rezultat: \texttt{PostgreSQL 17.12 on aarch64-unknown-linux-musl}.
 
 \paragraph{Pornire și oprire:}
 \begin{lstlisting}
@@ -288,6 +320,12 @@ docker compose down      # opreste containerele (datele raman)
 docker compose down -v   # opreste si sterge si datele
 \end{lstlisting}
 
+\subsection{Versionare cu Git și GitHub (\done)}
+Codul este versionat cu Git și publicat într-un repository public:
+\url{https://github.com/bonti23/second-chance-paws}.
+Fișierul \texttt{.env} este exclus prin \texttt{.gitignore}. După fiecare pas finalizat
+se face un \emph{commit} și un \emph{push}.
+
 \section{Plan de dezvoltare}
 
 \begin{center}
@@ -295,7 +333,7 @@ docker compose down -v   # opreste si sterge si datele
 \toprule
 \textbf{Pas} & \textbf{Status} & \textbf{Conținut} \\
 \midrule
-1 & \wip & PostgreSQL și pgAdmin în Docker \\
+1 & \done & PostgreSQL și pgAdmin în Docker \\
 2 & \todo & Proiect Spring Boot conectat la baza de date \\
 3 & \todo & Entități, migrări Flyway, date demonstrative \\
 4 & \todo & Securitate (JWT, roluri), API cu paginare și filtre \\

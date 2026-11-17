@@ -21,7 +21,8 @@ Proiect personal, cu date demonstrative fictive.
    ```bash
    docker compose up -d
    ```
-3. pgAdmin: http://localhost:5050
+3. pgAdmin: http://localhost:5050 (serverul apare automat; parola este cea din `.env`)
+4. Postgres este disponibil pe `localhost:5433`
 
 ## Documentație
 Documentația LaTeX se află în `docs/documentatie.tex`.
