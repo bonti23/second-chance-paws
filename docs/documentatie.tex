@@ -1,0 +1,308 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[romanian]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true, linkcolor=blue!50!black, urlcolor=blue!60!black}
+
+\definecolor{codebg}{RGB}{246,246,246}
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{gray!40},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  xleftmargin=1.5em
+}
+
+\newcommand{\done}{\textcolor{green!50!black}{\textbf{realizat}}}
+\newcommand{\wip}{\textcolor{blue!60!black}{\textbf{în lucru}}}
+\newcommand{\todo}{\textcolor{orange!80!black}{\textbf{planificat}}}
+
+\title{SecondChancePaws}
+\author{Alexandra-Mihaela Bontidean}
+\date{November 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Introducere}
+
+\textbf{Second Chance Paws} este o aplicație web pentru sprijinirea adopției animalelor
+fără stăpân și a centrelor care le adăpostesc. Aplicația este un proiect personal,
+dezvoltat în scop de învățare și portofoliu, cu orientare spre folosul comunității.
+
+Platforma pune în legătură trei categorii de persoane:
+\begin{itemize}
+  \item persoane care doresc să \textbf{adopte} un animal;
+  \item persoane care \textbf{nu mai pot avea grijă} de animalul lor sau care
+        \textbf{au găsit} un animal pe stradă și vor să-l ducă la un centru;
+  \item \textbf{centrele de adopție} (adăposturi, ONG-uri), care își gestionează
+        animalele și cererile primite.
+\end{itemize}
+
+\subsection{Obiective}
+\begin{itemize}
+  \item afișarea animalelor disponibile pentru adopție, cu filtrare și paginare;
+  \item o hartă interactivă cu centrele, datele de contact și distanța până la ele;
+  \item fluxuri separate pentru adopție, predarea unui animal și raportarea unui animal găsit;
+  \item integrarea unui asistent bazat pe inteligență artificială;
+  \item rularea întregii aplicații în containere Docker.
+\end{itemize}
+
+\subsection{Date folosite}
+Aplicația folosește exclusiv \textbf{date demonstrative fictive}: centre cu nume
+inventate, amplasate pe harta orașului Cluj-Napoca, numere de telefon evident false
+(de forma \texttt{0700 000 001}) și animale generate automat. Interfața afișează un
+mesaj care precizează că datele sunt fictive.
+
+\section{Tehnologii}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Componentă} & \textbf{Tehnologie} \\
+\midrule
+Limbaj backend      & Java 21 \\
+Framework backend   & Spring Boot 4.1 (Spring Web, Spring Data JPA, Spring Security) \\
+ORM                 & Hibernate \\
+Bază de date        & PostgreSQL 17 \\
+Migrări bază de date & Flyway \\
+Autentificare       & JWT (JSON Web Token) \\
+Documentare API     & OpenAPI / Swagger UI (springdoc) \\
+Frontend            & React + TypeScript (Vite) \\
+Hartă               & Leaflet + OpenStreetMap \\
+Inteligență artificială & Claude API (Anthropic) \\
+Containerizare      & Docker, Docker Compose \\
+Administrare BD     & pgAdmin 4 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{PostgreSQL, Flyway și Hibernate}
+Cele trei tehnologii nu sunt alternative, ci se completează:
+\begin{itemize}
+  \item \textbf{PostgreSQL} este sistemul de gestiune a bazei de date, unde sunt stocate datele.
+  \item \textbf{Flyway} gestionează structura bazei de date prin scripturi SQL versionate
+        (\texttt{V1\_\_init.sql}, \texttt{V2\_\_demo\_data.sql} etc.), rulate automat
+        la pornirea aplicației, în ordine.
+  \item \textbf{Hibernate} mapează tabelele pe clase Java (entități). Este configurat cu
+        \texttt{ddl-auto=validate}: verifică faptul că entitățile corespund schemei,
+        fără a o modifica. Schema este controlată exclusiv de Flyway.
+\end{itemize}
+
+\section{Arhitectură}
+
+Aplicația are o arhitectură client--server, cu trei componente principale, fiecare
+rulând în propriul container:
+
+\begin{enumerate}
+  \item \textbf{Frontend} (React) -- interfața din browser; comunică cu backend-ul prin HTTP/JSON.
+  \item \textbf{Backend} (Spring Boot) -- API REST, logica aplicației, securitate,
+        comunicarea cu serviciul de inteligență artificială.
+  \item \textbf{Baza de date} (PostgreSQL) -- stocarea persistentă a datelor.
+\end{enumerate}
+
+Backend-ul este organizat pe straturi:
+\texttt{controller} (endpoint-uri REST) $\rightarrow$ \texttt{service} (logica aplicației)
+$\rightarrow$ \texttt{repository} (acces la date prin Spring Data JPA) $\rightarrow$ baza de date.
+
+\section{Roluri și utilizatori}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Rol} & \textbf{Permisiuni} \\
+\midrule
+\texttt{USER}          & caută animale, trimite cereri de adopție, predă un animal,
+                         raportează un animal găsit \\
+\texttt{SHELTER\_STAFF} & gestionează animalele centrului, aprobă sau respinge cereri \\
+\texttt{ADMIN}         & aprobă centrele nou înscrise, moderează conținutul \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Un singur tip de cont este folosit pentru public, deoarece aceeași persoană poate
+atât să adopte, cât și să predea sau să raporteze un animal. Centrele își pot crea
+singure cont, iar acesta devine activ după aprobarea unui administrator.
+
+Pentru testare există câte un utilizator demonstrativ pentru fiecare rol.
+
+\section{Modelul de date (\todo)}
+
+Entitățile principale planificate:
+\begin{itemize}
+  \item \textbf{User} -- datele contului și rolul;
+  \item \textbf{Shelter} -- nume, adresă, latitudine, longitudine, telefon, program,
+        capacitate, tipurile de animale acceptate, status de aprobare;
+  \item \textbf{Animal} -- specie, rasă, vârstă, sex, mărime, sterilizat/vaccinat,
+        fotografii, status (\texttt{AVAILABLE}, \texttt{RESERVED}, \texttt{ADOPTED}),
+        centrul de care aparține;
+  \item \textbf{AdoptionRequest} -- utilizator, animal, mesaj, status;
+  \item \textbf{IntakeRequest} -- tip (\texttt{OWNER\_SURRENDER} sau \texttt{FOUND\_STRAY}),
+        fotografii, locația, starea animalului, centrul ales, status;
+  \item \textbf{Favorite} -- animalele salvate de un utilizator.
+\end{itemize}
+
+\section{Funcționalități}
+
+\subsection{Listare animale cu paginare și filtre (\todo)}
+Paginarea folosește interfețele \texttt{Pageable} și \texttt{Page<T>} din Spring Data.
+Filtrele dinamice (specie, vârstă, mărime, compatibilitate cu copii, sterilizare) sunt
+implementate cu \texttt{Specification}. Rezultatele pot fi sortate și după distanța
+față de utilizator.
+
+\subsection{Harta centrelor (\todo)}
+\begin{itemize}
+  \item harta este afișată cu Leaflet și OpenStreetMap (gratuit, fără cheie API);
+  \item locația utilizatorului este obținută prin API-ul de geolocalizare al browserului;
+  \item distanța în linie dreaptă se calculează cu formula Haversine:
+\end{itemize}
+\[
+d = 2R \arcsin\left(\sqrt{\sin^2\frac{\varphi_2-\varphi_1}{2}
+   + \cos\varphi_1 \cos\varphi_2 \sin^2\frac{\lambda_2-\lambda_1}{2}}\right)
+\]
+unde $R \approx 6371$ km este raza Pământului, $\varphi$ latitudinea și $\lambda$ longitudinea.
+Fiecare centru afișează numele, telefonul, programul și distanța, plus un buton de navigare.
+
+\subsection{Fluxul de adopție (\todo)}
+Utilizatorul trimite o cerere pentru un animal; personalul centrului o aprobă sau o
+respinge, iar statusul animalului se actualizează corespunzător.
+
+\subsection{Predarea sau raportarea unui animal (\todo)}
+Utilizatorul completează un formular (tip, fotografii, locație, descriere) și alege un
+centru de pe hartă. Centrul primește cererea și o gestionează.
+
+\subsection{Funcționalități pentru comunitate (\todo)}
+\begin{itemize}
+  \item anunțuri pentru animale pierdute și găsite;
+  \item găzduire temporară (\emph{foster});
+  \item lista de nevoi ale centrelor (hrană, pături, voluntari);
+  \item evenimente și povești de succes ale adopțiilor.
+\end{itemize}
+
+\section{Integrarea inteligenței artificiale (\todo)}
+Apelurile către Claude API se fac exclusiv din backend, cheia API nefiind expusă în
+frontend. Scenarii planificate:
+\begin{enumerate}
+  \item \textbf{Potrivire la adopție} -- pe baza unui chestionar (locuință, copii, timp
+        disponibil, alte animale), asistentul recomandă animale și explică alegerea;
+  \item \textbf{Triajul unui animal găsit} -- din fotografie și descriere se estimează
+        specia, vârsta și urgența, se oferă primii pași și se sugerează un centru;
+  \item \textbf{Generarea descrierilor} -- profiluri de animale generate pentru personalul centrelor;
+  \item \textbf{Asistent de chat} -- întrebări despre îngrijire și procesul de adopție.
+\end{enumerate}
+
+\section{Jurnal de implementare}
+
+\subsection{Pasul 1: Baza de date în Docker (\wip)}
+
+PostgreSQL nu este instalat local, ci rulează într-un container Docker. Astfel mediul de
+dezvoltare este reproductibil și poate fi pornit sau oprit cu o singură comandă.
+
+Structura proiectului după acest pas:
+\begin{lstlisting}
+second-chance-paws/
+|-- docker-compose.yml
+|-- .env
+|-- .gitignore
+`-- docs/
+    `-- documentatie.tex
+\end{lstlisting}
+
+\paragraph{Fișierul \texttt{docker-compose.yml}} definește două servicii:
+\begin{lstlisting}
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: scp-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4:9
+    container_name: scp-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@demo.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+\end{lstlisting}
+
+\begin{itemize}
+  \item \textbf{db} -- serverul PostgreSQL 17. Portul 5432 este expus pe \texttt{localhost};
+        volumul \texttt{pgdata} păstrează datele între reporniri; \emph{healthcheck}-ul
+        verifică periodic, cu \texttt{pg\_isready}, dacă baza de date acceptă conexiuni.
+  \item \textbf{pgadmin} -- interfață web pentru administrarea bazei de date, disponibilă la
+        \url{http://localhost:5050}. Pornește doar după ce serviciul \texttt{db} este funcțional.
+\end{itemize}
+
+\paragraph{Fișierul \texttt{.env}} conține configurările bazei de date, citite automat de
+Docker Compose. Fișierul nu este urcat în Git (este listat în \texttt{.gitignore});
+valorile sunt doar pentru mediul local de dezvoltare.
+\begin{lstlisting}
+POSTGRES_DB=second_chance_paws
+POSTGRES_USER=scp
+POSTGRES_PASSWORD=scp_dev_password
+\end{lstlisting}
+
+\paragraph{Pornire și oprire:}
+\begin{lstlisting}
+docker compose up -d     # porneste containerele in fundal
+docker compose ps        # afiseaza starea containerelor
+docker compose down      # opreste containerele (datele raman)
+docker compose down -v   # opreste si sterge si datele
+\end{lstlisting}
+
+\section{Plan de dezvoltare}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}clX@{}}
+\toprule
+\textbf{Pas} & \textbf{Status} & \textbf{Conținut} \\
+\midrule
+1 & \wip & PostgreSQL și pgAdmin în Docker \\
+2 & \todo & Proiect Spring Boot conectat la baza de date \\
+3 & \todo & Entități, migrări Flyway, date demonstrative \\
+4 & \todo & Securitate (JWT, roluri), API cu paginare și filtre \\
+5 & \todo & Frontend React și harta centrelor \\
+6 & \todo & Docker Compose complet și integrarea AI \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\end{document}
